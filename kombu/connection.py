@@ -13,6 +13,7 @@ from operator import itemgetter
 # jython breaks on relative import for .exceptions for some reason
 # (Issue #112)
 from kombu import exceptions
+from kombu.transport.proxy import ProxyChannel
 
 from .five import (
     bytes_if_py2, python_2_unicode_compatible, reraise, string_t, text_t,
@@ -803,8 +804,7 @@ class Connection(object):
                 self._closed = False
             return self._connection
 
-    @property
-    def default_channel(self):
+    def _get_default_channel(self):
         """Default channel.
 
         Created upon access and closed when the connection is closed.
@@ -815,6 +815,7 @@ class Connection(object):
             a connection is passed instead of a channel, to functions that
             require a channel.
         """
+
         conn_opts = {}
         transport_opts = self.transport_options
         if transport_opts:
@@ -832,6 +833,22 @@ class Connection(object):
         if self._default_channel is None:
             self._default_channel = self.channel()
         return self._default_channel
+
+    @property
+    def default_channel(self):
+        """Default channel.
+
+        Created upon access and closed when the connection is closed.
+
+        Note:
+            Can be used for automatic channel handling when you only need one
+            channel, and also it is the channel implicitly used if
+            a connection is passed instead of a channel, to functions that
+            require a channel.
+        """
+
+        self._get_default_channel()
+        return ProxyChannel(lambda: self._default_channel or self._get_default_channel())
 
     @property
     def host(self):
